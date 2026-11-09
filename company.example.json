@@ -1,0 +1,182 @@
+{
+  "nc_url": "https://nextcloud.example.com",
+  "poll_seconds": 120,
+  "max_chain_depth": 4,
+  "claude_weekly_reset": {
+    "weekday": 3,
+    "hour": 15
+  },
+  "agents": {
+    "ringo": {
+      "nc_user": "claude",
+      "env": "REPLACE_ME",
+      "display": "Ringo",
+      "timeout": 7200
+    },
+    "miku": {
+      "nc_user": "miku",
+      "env": "REPLACE_ME",
+      "display": "Miku",
+      "timeout": 1800,
+      "max_parallel": 2,
+      "reassign_to": "gem"
+    },
+    "freddy": {
+      "nc_user": "freddy",
+      "env": "REPLACE_ME",
+      "display": "Freddy",
+      "timeout": 3600
+    },
+    "vicky": {
+      "nc_user": "vicky",
+      "env": "REPLACE_ME",
+      "display": "Vicky",
+      "timeout": 1800
+    },
+    "caine": {
+      "nc_user": "caine",
+      "env": "REPLACE_ME",
+      "display": "Caine",
+      "timeout": 3600,
+      "bin": "REPLACE_ME",
+      "home": "/opt/caine/home",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "key_env": "/opt/company/secrets/openrouter-caine.env",
+      "projects": [
+        "exmint",
+        "dashboard",
+        "lucidmail"
+      ]
+    },
+    "deepti": {
+      "nc_user": "deepti",
+      "env": "REPLACE_ME",
+      "display": "Deepti",
+      "timeout": 3600,
+      "home": "/opt/deepti/home",
+      "key_env": "/opt/company/secrets/deepseek-deepti.env",
+      "bin": "REPLACE_ME",
+      "model": "deepseek-flash[1m] (Claude Code gateway via api.deepseek.com/anthropic)",
+      "projects": [
+        "client_a"
+      ],
+      "peak_utc": {
+        "_doc": "DeepSeek peak (2x price): Mon-Fri UTC, Chinese holidays excluded; api-docs.deepseek.com/quick_start/pricing 2026-10-30. Deepti runs only off-peak.",
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "hours": [
+          [
+            1,
+            4
+          ],
+          [
+            6,
+            10
+          ]
+        ],
+        "holidays": [
+          "2027-01-01"
+        ],
+        "_holidays_doc": "Chinese public holidays (Beijing dates, off-peak all day). 2026 ones after Nov are none; 2027 list = State Council notice due ~Nov 2026, only fixed Jan 1 added so far. Makeup workdays (\u8c03\u4f11 Saturdays) not added as peak: DeepSeek says Mon-Fri only."
+      },
+      "_projects_doc": "Manuel 2026-11-08 (LucidMail room): Deepti not used for LucidMail now; Caine instead."
+    },
+    "gem": {
+      "nc_user": "gem",
+      "env": "REPLACE_ME",
+      "display": "Gem",
+      "timeout": 3600,
+      "home": "/opt/gem/home",
+      "agy_model": "gemini-3.8-flash-medium",
+      "projects": [
+        "hq",
+        "client_a",
+        "lucidmail",
+        "dashboard",
+        "automusic",
+        "docreview",
+        "exmint",
+        "paula",
+        "muse"
+      ]
+    },
+    "argon": {
+      "nc_user": "gem",
+      "env": "REPLACE_ME",
+      "display": "Argon",
+      "timeout": 3600,
+      "home": "/opt/gem/home",
+      "agy_model": "gemini-4-argon-medium",
+      "projects": [
+        "hq",
+        "client_a",
+        "lucidmail",
+        "dashboard",
+        "automusic",
+        "docreview",
+        "exmint",
+        "paula",
+        "muse"
+      ]
+    }
+  },
+  "watcher": {
+    "nc_user": "oscar",
+    "token_file": "REPLACE_ME"
+  },
+  "brain": {
+    "status_url": "REPLACE_ME",
+    "health_url": "REPLACE_ME",
+    "wait_minutes": 10,
+    "nightly_flag": "REPLACE_ME",
+    "quiet_hours": [
+      1
+    ]
+  },
+  "projects": {
+    "myproject": {
+      "room": "TALK_ROOM_TOKEN",
+      "repo": "/path/to/repo",
+      "boards": [
+        1
+      ],
+      "muse": true
+    }
+  },
+  "ringo_resume_minutes": 60,
+  "ringo_resume_max_turns": 4,
+  "manuel_ask": {
+    "chat_id": "YOUR_TELEGRAM_CHAT_ID",
+    "max_per_10min": 5
+  },
+  "_teams_doc": "Free-text note about who works on what.",
+  "runner": {
+    "enabled": true,
+    "ct": 132,
+    "host": "192.168.50.132",
+    "ssh": "REPLACE_ME",
+    "wrapper": "/opt/company/tools/lm-test",
+    "min_headroom_mb": 14000,
+    "max_load1": 12,
+    "min_container_mb": 8192,
+    "projects": [
+      "lucidmail"
+    ],
+    "env": {
+      "python_min": "3.12",
+      "node_major": 22
+    },
+    "_doc": "Phase 1 test-runner (Manuel 2026-11-03): LucidMail test suites run in Proxmox CT 132 agent-build, never on this 2-vCPU VPS. Read by tools/lm-test. Phase 2 (whole harness in the CT) is NOT approved. Rollback: delete this key or set enabled false."
+  },
+  "pull_queue": true,
+  "specialists": true,
+  "muse_targets": {
+    "myproject": "https://staging.example.com"
+  },
+  "scrum": true
+}

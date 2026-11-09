@@ -1,0 +1,13 @@
+company.json
+company.json.bak*
+*.bak*
+state*.json
+state-*/
+*.db
+*.lock
+secrets/
+outputs/
+logs/
+work/
+__pycache__/
+*.env
