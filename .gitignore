@@ -11,3 +11,4 @@ logs/
 work/
 __pycache__/
 *.env
+.env

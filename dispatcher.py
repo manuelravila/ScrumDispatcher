@@ -30,7 +30,23 @@ import muse_feed
 import weekly_review
 import daily_report
 
-HOME = os.environ.get('COMPANY_HOME', '/opt/company')
+def _load_dotenv(path):
+    """Minimal .env reader (KEY=VALUE, # comments). Real environment variables win. Never shell-sourced."""
+    try:
+        for line in open(path):
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line: continue
+            k, v = line.split('=', 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except OSError:
+        pass
+
+_load_dotenv(os.path.join(os.environ.get('COMPANY_HOME', os.path.dirname(os.path.abspath(__file__))), '.env'))
+HOME = os.environ.get('COMPANY_HOME', os.path.dirname(os.path.abspath(__file__)))
+HERMES_HOME = os.environ.get('HERMES_HOME', os.path.expanduser('~/.hermes'))
+EXTRA_PATH = os.environ.get('EXTRA_PATH', os.path.expanduser('~/.local/bin'))
+OPERATOR = os.environ.get('OPERATOR_NAME', 'the operator')
+OPERATOR_HANDLE = os.environ.get('OPERATOR_HANDLE', 'operator')   # Nextcloud username, no @
 sys.path.insert(0, f'{HOME}/tools')
 try:
     import manuel_ask   # questions for Manuel go to Telegram (Manuel 2026-10-25, voice 2104)
@@ -56,7 +72,7 @@ DECK_COMMENT_MAX = 950
 # TASK4 part A: user-facing rename only. With the `scrum` flag absent the old strings are returned, so the
 # live pipeline is byte-for-byte unchanged until Ringo enables it in company.json.
 SCRUM_DISPATCHER_NAME = 'Scrum Dispatcher'
-LEGACY_DISPATCHER_NAME = 'Automatos HQ'
+LEGACY_DISPATCHER_NAME = os.environ.get('LEGACY_DISPATCHER_NAME', 'HQ')
 DISPATCHER_NAME = SCRUM_DISPATCHER_NAME
 
 
@@ -70,7 +86,7 @@ def scrum_enabled():
 
 
 DAILY_REPORT_HOUR = 9
-DAILY_REPORT_TZ = 'America/Toronto'
+DAILY_REPORT_TZ = os.environ.get('TZ_NAME', 'UTC')
 DAILY_REPORT_PATH = f'{HOME}/outputs/daily-report.md'
 
 logging.basicConfig(filename=f'{HOME}/logs/dispatcher.log', level=logging.INFO,
@@ -107,7 +123,7 @@ try:
 except (FileNotFoundError, OSError, KeyError):
     _token = 'mock'
 SESS['oscar'] = _session(W['nc_user'], _token)
-_m = _env('/root/.config/nextcloud-muse.env'); SESS['muse'] = _session(_m['NC_USER'], _m['NC_PASSWORD'])
+_m = _env(os.environ.get('MUSE_ENV_FILE', f'{HOME}/secrets/nextcloud-muse.env')); SESS['muse'] = _session(_m['NC_USER'], _m['NC_PASSWORD'])
 
 UID2AGENT = {}
 for n, a in CFG['agents'].items():
@@ -118,7 +134,7 @@ UID2AGENT['muse'] = 'muse'
 HANDLES = {'ringo': 'ringo', 'claude': 'ringo', 'miku': 'miku', 'freddy': 'freddy', 'oscar': 'oscar', 'vicky': 'vicky', 'muse': 'muse',
            'caine': 'caine', 'deepti': 'deepti', 'gem': 'gem', 'argon': 'argon'}
 MENTION_RE = re.compile(r'@"?(ringo|claude|miku|freddy|oscar|vicky|muse|caine|deepti|gem|argon)\b', re.I)
-HERMES_AGENTS = {'oscar': None, 'vicky': 'paula'}  # agent -> Hermes profile (None = default)
+HERMES_AGENTS = json.loads(os.environ.get('HERMES_AGENTS', '{"oscar": null}'))  # agent -> Hermes profile (None = default)
 
 # ---------------------------------------------------------------- state
 
@@ -249,16 +265,16 @@ def brain_available():
 
 # ---------------------------------------------------------------- prompts
 
-ROSTER = f"""You work at {dispatcher_name()}, Manuel's home AI company.
-- Manuel (@mrar1995): general manager. Final say on decisions, merges, deploys.
-- Oscar: supervisor and Manuel's interface (Hermes agent).
+ROSTER = f"""You work at {dispatcher_name()}, {OPERATOR}'s home AI company.
+- {OPERATOR} (@{OPERATOR_HANDLE}): general manager. Final say on decisions, merges, deploys.
+- Oscar: supervisor and {OPERATOR}'s interface (Hermes agent).
 - Ringo (@ringo): Claude Opus, tech lead. Architecture, specs, reviews. Owns quality on every project task: the dispatcher sends Freddy's and Miku's results back to him for review.
 - Freddy (@freddy): Qwen Flash on Brain, coder and heavy lifter. First choice for implementation and long, token-heavy work.
 - Miku (@miku): Claude Haiku. Backup coder ONLY for Oscar's and Vicky's own ad-hoc dev work (hq/paula). Never used for LucidMail or DocReview: those are low-priority and Freddy-only, so a busy or paused Freddy there means the task just waits for him instead of falling to Miku.
-- Caine (@caine): Inkling (free OpenRouter tier, trains on what it sees), second coder. Only LucidMail, AutoMusic, Dashboard, HQ and ExMint (our own apps and internal tools); never DocReview, ClientA (client data) and never Manuel's work documents.
-- Gem (@gem): Gemini through the Antigravity CLI (Manuel's Google AI Pro; client data allowed), coder at Freddy's level of access: any project. Gem always runs Gemini 3.8 Flash medium.
+- Caine (@caine): Inkling (free OpenRouter tier, trains on what it sees), second coder. Only LucidMail, AutoMusic, Dashboard, HQ and ExMint (our own apps and internal tools); never DocReview, ClientA (client data) and never {OPERATOR}'s work documents.
+- Gem (@gem): Gemini through the Antigravity CLI ({OPERATOR}'s Google AI Pro; client data allowed), coder at Freddy's level of access: any project. Gem always runs Gemini 3.8 Flash medium.
 - Argon (@argon): Gemini 4 Argon on Antigravity CLI, specialist. Reviews and specs cards in To spec, writes solutions with test briefs, and solves/codes complex escalated cards.
-- Deepti (@deepti): DeepSeek (paid API, no training on prompts, Chinese provider), coder. Takes Freddy's cards on ClientA and DocReview while Freddy is paused. Never Manuel's work documents.
+- Deepti (@deepti): DeepSeek (paid API, no training on prompts, Chinese provider), coder. Takes Freddy's cards on ClientA and DocReview while Freddy is paused. Never {OPERATOR}'s work documents.
 - Paula (@paula): a family member of the operator. Vicky (@vicky, Hermes on Haiku) is her assistant and owns her room.
 Rules: your final answer is posted to the team chat as you, so write it as a chat reply (concise, plain text or light markdown).
 To hand work to a teammate, mention them (@freddy, @miku, @ringo, @oscar) with a clear, self-contained task. Prefer @freddy for implementation.
@@ -266,8 +282,8 @@ IMPORTANT: an @mention starts a new job for that teammate. Only @mention someone
 Your final answer is threaded as a reply to the message that triggered you, and the dispatcher delivers it once to that message's author; their follow-up comes back only if it asks a question ('?'). So never @mention to thank, confirm, agree or report back; when it is not obvious whom you answer, start with their name (no @). To hand a reply to someone other than the author of the message you reply to, @mention them. Write names without @ otherwise.
 Only reply when there is something to say: no acknowledgements, no restating what someone else already said.
 When your reply finishes the task you were given, end it with one line "Pending: <what is still open and who owns it>" or "Pending: nothing".
-Mention @mrar1995 when you need a decision from Manuel, in THIS room (its project's Talk room), or through Oscar for ad-hoc HQ work. Every message that mentions him reaches his Telegram, so make it self-contained (what to decide and why) and, when there are clear choices, put each on its own line as "OPTION: <short choice>" (2-4); he can tap one. Manuel's WhatsApp live feed is read-only progress updates; never expect or wait for an answer there. Never push to remote branches, deploy to production, or delete data unless the task explicitly says so.
-Shared knowledge: the team wiki is the single source of truth. Before answering anything about Manuel's infrastructure, services or projects, search it with the qmd MCP tools (query, then get).
+Mention @{OPERATOR_HANDLE} when you need a decision from {OPERATOR}, in THIS room (its project's Talk room), or through Oscar for ad-hoc HQ work. Every message that mentions him reaches his Telegram, so make it self-contained (what to decide and why) and, when there are clear choices, put each on its own line as "OPTION: <short choice>" (2-4); he can tap one. {OPERATOR}'s WhatsApp live feed is read-only progress updates; never expect or wait for an answer there. Never push to remote branches, deploy to production, or delete data unless the task explicitly says so.
+Shared knowledge: the team wiki is the single source of truth. Before answering anything about {OPERATOR}'s infrastructure, services or projects, search it with the qmd MCP tools (query, then get).
 If you learn something durable that the wiki lacks, update the relevant page under /mnt/manu/files/wiki/ (start at index.md, follow SCHEMA.md) and say so in your reply.
 """
 
@@ -322,13 +338,13 @@ def agent_git_env(agent):
     if not agent:
         return {}
     who = f"{CFG['agents'][agent]['display']} (Automatos AI agent)"
-    mail = f'{agent}@agents.automatos.ca'
+    mail = f'{agent}@{os.environ.get("AGENT_MAIL_DOMAIN", "agents.example.com")}'
     return {'GIT_AUTHOR_NAME': who, 'GIT_AUTHOR_EMAIL': mail, 'GIT_COMMITTER_NAME': who, 'GIT_COMMITTER_EMAIL': mail}
 
 
 def run_cmd(cmd, cwd, timeout, stdin=None, live_log=None, agent=None):
     env = dict(os.environ, IS_SANDBOX='1', HOME='/root', CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD='1',
-               PATH='/root/.local/bin:/root/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin', **agent_git_env(agent))
+               PATH=EXTRA_PATH + ':/usr/local/bin:/usr/bin:/bin', **agent_git_env(agent))
     if live_log:
         with open(live_log, 'w') as lf:
             p = subprocess.run(cmd, cwd=cwd, env=env, stdout=lf, stderr=subprocess.PIPE,
@@ -527,7 +543,7 @@ class ClaudeFailed(Exception):
     """A Claude run ended without a usable result (is_error other than a limit, or no result event)."""
 
 
-LIMIT_TZ = 'America/Toronto'
+LIMIT_TZ = os.environ.get('TZ_NAME', 'UTC')
 LIMIT_MARGIN = 120
 LIMIT_TEXT_RE = re.compile(r"hit your (?:\w+ )?limit|usage limit", re.I)
 RESET_RE = re.compile(r'resets\s+(?:at\s+)?(?:([A-Z][a-z]{2})[a-z]*\.?\s+(\d{1,2}),?\s+(?:at\s+)?)?(\d{1,2})(?::(\d\d))?\s*(am|pm)'
@@ -738,7 +754,7 @@ def stop_freddy(who, handoff=True):
 def run_freddy(project, prompt):
     repo = CFG['projects'][project]['repo'] or f'{HOME}/work/freddy'
     os.makedirs(repo, exist_ok=True)  # 2026-11-06: CT 132 move lost worker dirs
-    env = dict(os.environ, HOME='/root', PATH='/root/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin',
+    env = dict(os.environ, HOME=os.environ.get('HOME', '/root'), PATH=EXTRA_PATH + ':/usr/local/bin:/usr/bin:/bin',
                **agent_git_env('freddy'))
     live_log = live_log_path('freddy', project)
     lf = open(live_log, 'w')
@@ -958,7 +974,7 @@ def run_gem(project, prompt, agent='gem'):
     c = CFG['agents'].get(agent) or CFG['agents']['gem']
     repo = CFG['projects'][project]['repo'] or f'{HOME}/work/{agent}'
     os.makedirs(repo, exist_ok=True)
-    env = dict(os.environ, HOME=c['home'], PATH=f"{c['home']}/.local/bin:/root/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin",
+    env = dict(os.environ, HOME=c['home'], PATH=f"{c['home']}/.local/bin:{EXTRA_PATH}:/usr/local/bin:/usr/bin:/bin",
                IS_SANDBOX='1', **agent_git_env(agent))
     prompt = stage_agent_files(repo, prompt)
     live_log = live_log_path(agent, project)
@@ -1053,7 +1069,7 @@ def run_caine(project, prompt):
     c = CFG['agents']['caine']
     repo = CFG['projects'][project]['repo'] or f'{HOME}/work/caine'
     os.makedirs(repo, exist_ok=True)  # 2026-11-06: CT 132 move lost worker dirs
-    env = dict(os.environ, HOME=c['home'], PATH='/root/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin',
+    env = dict(os.environ, HOME=c['home'], PATH=EXTRA_PATH + ':/usr/local/bin:/usr/bin:/bin',
                ANTHROPIC_BASE_URL='https://openrouter.ai/api', ANTHROPIC_API_KEY='',
                ANTHROPIC_AUTH_TOKEN=_env(c['key_env'])['OPENROUTER_API_KEY'],
                ANTHROPIC_MODEL=c['model'], IS_SANDBOX='1', **agent_git_env('caine'))
@@ -1161,7 +1177,7 @@ def run_deepti(project, prompt):
 
 def run_hermes(profile, project, prompt):
     """Oscar (default profile) or Vicky (paula profile) via the local Hermes api_server; one session per room."""
-    envf = '/root/.hermes/.env' if not profile else f'/root/.hermes/profiles/{profile}/.env'
+    envf = f'{HERMES_HOME}/.env' if not profile else f'{HERMES_HOME}/profiles/{profile}/.env'
     env = {}
     for line in open(envf):
         if line.startswith('API_SERVER_') and '=' in line:
@@ -1169,7 +1185,7 @@ def run_hermes(profile, project, prompt):
     # Port comes from the default profile's .env (profiles are routed as /p/<name> on the same server).
     # 2026-11-05: was hardcoded 8642 (VPS); Hermes on CT 132 listens on 8081.
     port = '8642'
-    for line in open('/root/.hermes/.env'):
+    for line in open(f'{HERMES_HOME}/.env'):
         if line.startswith('API_SERVER_PORT='):
             port = line.strip().split('=', 1)[1].strip().strip('"').strip("'")
     base = f'http://127.0.0.1:{port}' + (f'/p/{profile}' if profile else '')
@@ -1198,7 +1214,7 @@ def run_muse(project, task):
     out = r.stdout.strip()
     if r.returncode == 2:
         return 'oscar', ('Muse is offline: Brave with Muse is not running on the VM. '
-                         '@mrar1995 please double-click "Meta Muse (Brave)" on the VM desktop, then ask again.')
+                         f'@{OPERATOR_HANDLE} please double-click "Meta Muse (Brave)" on the VM desktop, then ask again.')
     if r.returncode == 4:
         return 'muse', out + ('\n\n[Muse is waiting for an approval in its web app. muse_autoapprove allows review-test '
                               'uploads; anything else reaches Manuel on Telegram with Allow/Deny buttons.]')
@@ -2086,7 +2102,7 @@ def _review_loop(project, task, coder, result, thread_key, notify):
 # follow-up job from the last reply has passed. A one-job task needs no extra message (the reply
 # is the report and ends with "Pending:"); longer chains get a summary from Haiku, posted as Oscar.
 # Deck cards report in deck_job. In memory only: jobs do not survive a restart either.
-REQUESTERS = set(CFG.get('done_report_requesters', ['mrar1995', 'oscar']))
+REQUESTERS = set(CFG.get('done_report_requesters', [OPERATOR_HANDLE, 'oscar']))
 TASK_QUIET = 2 * CFG['poll_seconds'] + 5
 TASKS = {}     # root mid -> {room, project, by, task, active, jobs, idle_since, log}
 TASK_OF = {}   # posted mid -> root mid
@@ -2224,8 +2240,8 @@ def room_url(room, mid=None):
 
 
 def mentions_manuel(m):
-    return '@mrar1995' in m.get('message', '') or any(
-        isinstance(p, dict) and p.get('type') == 'user' and p.get('id') == 'mrar1995'
+    return f'@{OPERATOR_HANDLE}' in m.get('message', '') or any(
+        isinstance(p, dict) and p.get('type') == 'user' and p.get('id') == OPERATOR_HANDLE
         for p in (m.get('messageParameters') or {}).values())
 
 
@@ -2287,7 +2303,7 @@ def talk_job(agent, project, room, m, depth, root=None, ack=False):
                 if body.strip():
                     talk_post('ringo', room, body, reply_to=posted or mid, depth=99)
             elif verdict == 'NEEDS_MANUEL':
-                talk_post('ringo', room, f'@mrar1995 decision needed: {body}', reply_to=posted or mid, depth=99)
+                talk_post('ringo', room, f'@{OPERATOR_HANDLE} decision needed: {body}', reply_to=posted or mid, depth=99)
             else:
                 talk_post('ringo', room, body, reply_to=posted or mid, depth=99)
         talk_react(ran, room, mid, '✅')
@@ -2578,7 +2594,7 @@ def deck_job(agent, project, board, stacks, card):
 # Manuel 2026-10-30: an @mention in a Deck card comment works like a Talk message, and the answer goes
 # back to the card as a comment. Source: Oscar's Deck activity feed (he is on every project board).
 # Only Manuel's comments trigger, so agents cannot ping each other in loops.
-DECK_MENTION_USERS = set(CFG.get('deck_mention_users', ['mrar1995']))
+DECK_MENTION_USERS = set(CFG.get('deck_mention_users', [OPERATOR_HANDLE]))
 ACTIVITY_DECK = NC + '/ocs/v2.php/apps/activity/api/v2/activity/deck'
 BOARD2PROJECT = {b: name for name, p in CFG['projects'].items() for b in p['boards']}
 
@@ -2625,7 +2641,7 @@ def deck_mention_job(agent, project, board, stack, cid, user, text):
         r = SESS['oscar'].get(f'{DECK_OCS}/cards/{cid}/comments', params={'limit': 10}, timeout=30)
         comments = r.json()['ocs']['data'] if r.status_code == 200 else []
         ctx = '\n'.join(f"{c['actorDisplayName']}: {c['message']}" for c in reversed(comments))
-        who = 'Manuel' if user == 'mrar1995' else user
+        who = OPERATOR if user == OPERATOR_HANDLE else user
         task = (f"{who} wrote in a comment on Deck card #{cid} ({card['title']}, board {board}): {text}\n\n"
                 f"Card description:\n{card.get('description') or '(no description)'}\n\n"
                 'Your answer is posted as a comment on this card, so keep it short and self-contained '
@@ -2711,7 +2727,7 @@ def finish_card(agent, project, board, stacks, card, task, ran, text):
             final_label = 'Decide'
             dkey = mark_decide(card['id'], board)
             with ASK_LOCK:
-                mid = talk_post('ringo', room, f'@mrar1995 {title} needs a decision: {body}', depth=99)
+                mid = talk_post('ringo', room, f'@{OPERATOR_HANDLE} {title} needs a decision: {body}', depth=99)
                 ask_manuel([k for k in (dkey, mid and f'talk:{mid}') if k],
                            f"{PNAME.get(project, project)} #{card['id']} «{card['title']}» · Ringo necesita una decisión",
                            body, card_url(board, card['id']), deck_route(project, board, card, mid=mid))

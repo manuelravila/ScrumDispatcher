@@ -42,3 +42,9 @@ Status: extracted from a private, working deployment. It is opinionated and not 
 ## License
 
 MIT, see `LICENSE`.
+
+## Configuration (.env)
+
+Deployment-specific values live in a git-ignored `.env` (copy `.env.example`) in `COMPANY_HOME`
+(default: the directory of `dispatcher.py`). Real environment variables win. Project and board
+settings stay in the git-ignored `company.json` (see `company.example.json`); credentials live in `secrets/`.
