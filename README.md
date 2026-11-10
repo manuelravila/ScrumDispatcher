@@ -41,7 +41,7 @@ Status: extracted from a private, working deployment. It is opinionated and not 
 
 ## License
 
-MIT, see `LICENSE`.
+GPL-3.0, see `LICENSE`.
 
 ## Configuration (.env)
 
