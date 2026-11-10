@@ -69,7 +69,11 @@ class FallbackTest(Base):
              mock.patch.object(d, 'freddy_ready', return_value=(True, '')), \
              mock.patch.object(d, 'in_work_hours', return_value=False), \
              mock.patch.object(d, 'freddy_nudge_check'), mock.patch.object(d, 'decide_check'), \
+             mock.patch.object(d, 'check_weekly_review'), \
              mock.patch.object(d.POOL, 'submit', side_effect=lambda fn, agent, project, board, stacks, c: started.append(c['id'])):
+            # poll_deck() calls check_weekly_review() at the end, but weekly reviews are unrelated
+            # to what these fallback tests measure. Without this mock a test run POSTs a real
+            # "Weekly pipeline review" card to production board 29 (33 duplicates on 2026-11-09).
             d.poll_deck()
         d.STATE['deck_active'].clear()
         return started

@@ -3557,16 +3557,41 @@ def check_weekly_review(board_stacks, now=None):
             c_copy['stackTitle'] = s.get('title')
             existing_cards.append(c_copy)
 
-    if weekly_review.due(now, existing_cards):
+    # weekly_review.due() only counts an OPEN card, so a review moved to Done (or otherwise closed)
+    # would let a second card be created in the same week. Scan every stack, not just open ones.
+    wanted_title = ' '.join(weekly_review.WEEKLY_TITLE.split()).lower()
+    wanted_body = f'{weekly_review.WEEKLY_TITLE} for {current_week}'
+
+    def has_weekly_card(c):
+        title = ' '.join(str(c.get('title') or '').split()).lower()
+        first_line = str(c.get('description') or '').split('\n', 1)[0]
+        return title == wanted_title or first_line.startswith(wanted_body)
+
+    if any(has_weekly_card(c) for c in existing_cards):
+        STATE['weekly_review_last_week'] = current_week
+        save_state()
+        log.info('weekly review: skipped, %s already has a card', current_week)
+    elif weekly_review.due(now, existing_cards):
         data_block = weekly_review.build_data_block(STATE, now) if scrum_enabled() else ''
         payload = weekly_review.card_payload(now, data_block=data_block)
         if to_spec_id is None:
             to_spec_id = ensure_stack(29, 'To spec')
         session_agent = 'oscar' if 29 in (27, 30) else 'ringo'
-        deck(session_agent, 'POST', f"/boards/29/stacks/{to_spec_id}/cards",
-             json={'title': payload['title'], 'description': payload['description'], 'order': 0})
+        # Durable marker BEFORE the POST: a crash or timeout between the two must not create a
+        # second card on the next poll. save_state() takes _lock itself, so do not hold it here.
+        previous_week = STATE.get('weekly_review_last_week')
         STATE['weekly_review_last_week'] = current_week
         save_state()
+        try:
+            deck(session_agent, 'POST', f"/boards/29/stacks/{to_spec_id}/cards",
+                 json={'title': payload['title'], 'description': payload['description'], 'order': 0})
+        except Exception:
+            if previous_week is None:
+                STATE.pop('weekly_review_last_week', None)
+            else:
+                STATE['weekly_review_last_week'] = previous_week
+            save_state()
+            raise
         log.info('weekly review: created card on board 29 for %s', current_week)
 
     # TASK4 part F: the deterministic data block and up to 3 Improvement proposals live with the weekly
